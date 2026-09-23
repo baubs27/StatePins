@@ -1,0 +1,21 @@
+{
+  "name": "statepins",
+  "private": true,
+  "version": "1.0.0",
+  "packageManager": "pnpm@11.7.0",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @statepins/api --filter @statepins/mobile dev",
+    "dev:mobile": "pnpm --filter @statepins/mobile start",
+    "dev:api": "pnpm --filter @statepins/api dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "test:smoke": "pnpm --filter @statepins/api test:smoke",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test:smoke && pnpm build",
+    "db:migrate": "pnpm --filter @statepins/api db:migrate",
+    "db:seed": "pnpm --filter @statepins/api db:seed"
+  },
+  "dependencies": {
+    "expo-haptics": "~15.0.8"
+  }
+}

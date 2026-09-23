@@ -1,0 +1,243 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  username     String    @unique
+  passwordHash String
+  passwordAuthEnabled Boolean @default(true)
+  displayName  String
+  avatarUrl    String?
+  role         String    @default("USER")
+  sessionVersion Int     @default(0)
+  emailVerifiedAt DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  pins         Pin[]
+  comments     Comment[]
+  votes        Vote[]
+  itinerary    ItineraryItem[]
+  visited      VisitedState[]
+  reports      Report[]  @relation("Reporter")
+  blocksMade   Block[]   @relation("Blocker")
+  blocksGot    Block[]   @relation("Blocked")
+  messages     ChatMessage[]
+  refreshSessions RefreshSession[]
+  passwordResetTokens PasswordResetToken[]
+  oauthAccounts OAuthAccount[]
+  friendRequestsSent Friendship[] @relation("FriendRequester")
+  friendRequestsReceived Friendship[] @relation("FriendAddressee")
+  favoritePins FavoritePin[]
+  pushDevices PushDevice[]
+}
+
+model RefreshSession {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model OAuthAccount {
+  id                String   @id @default(cuid())
+  userId            String
+  provider          String
+  providerAccountId String
+  createdAt         DateTime @default(now())
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Friendship {
+  id          String   @id @default(cuid())
+  requesterId String
+  addresseeId String
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  requester   User     @relation("FriendRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee   User     @relation("FriendAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+  @@index([addresseeId, status])
+}
+
+model FavoritePin {
+  userId    String
+  pinId     String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pin       Pin      @relation(fields: [pinId], references: [id], onDelete: Cascade)
+
+  @@id([userId, pinId])
+}
+
+model PushDevice {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  platform  String
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, enabled])
+}
+
+model State {
+  id        String         @id
+  name      String
+  abbr      String         @unique
+  latitude  Float
+  longitude Float
+  pins      Pin[]
+  visits    VisitedState[]
+}
+
+model Pin {
+  id          String          @id @default(cuid())
+  stateId     String
+  authorId    String
+  name        String
+  city        String
+  description String
+  category    String
+  imageUrl    String
+  latitude    Float
+  longitude   Float
+  status      String          @default("ACTIVE")
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  state       State           @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  author      User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments    Comment[]
+  votes       Vote[]
+  itinerary   ItineraryItem[]
+  favorites   FavoritePin[]
+
+  @@index([stateId, status])
+  @@index([authorId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  pinId     String
+  authorId  String
+  text      String
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  pin       Pin      @relation(fields: [pinId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([pinId, status])
+}
+
+model Vote {
+  userId    String
+  pinId     String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pin       Pin      @relation(fields: [pinId], references: [id], onDelete: Cascade)
+
+  @@id([userId, pinId])
+}
+
+model ItineraryItem {
+  id        String   @id @default(cuid())
+  userId    String
+  pinId     String
+  position  Int      @default(0)
+  visited   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pin       Pin      @relation(fields: [pinId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, pinId])
+  @@index([userId, position])
+}
+
+model VisitedState {
+  userId    String
+  stateId   String
+  visitedAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  state     State    @relation(fields: [stateId], references: [id], onDelete: Cascade)
+
+  @@id([userId, stateId])
+}
+
+model Report {
+  id         String   @id @default(cuid())
+  reporterId String
+  targetType String
+  targetId   String
+  reason     String
+  details    String?
+  status     String   @default("OPEN")
+  reviewedBy String?
+  reviewedAt DateTime?
+  createdAt  DateTime @default(now())
+  reporter   User     @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([targetType, targetId])
+}
+
+model Block {
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+  blocker   User     @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   User     @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@id([blockerId, blockedId])
+}
+
+model ChatRoom {
+  id        String        @id @default(cuid())
+  stateId   String?
+  name      String
+  status    String        @default("ACTIVE")
+  createdAt DateTime      @default(now())
+  messages  ChatMessage[]
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  roomId    String
+  authorId  String
+  text      String
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  room      ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, createdAt])
+}
