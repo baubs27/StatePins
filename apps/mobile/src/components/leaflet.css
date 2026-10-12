@@ -1,0 +1,134 @@
+.stateup-leaflet-map {
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  overflow: hidden;
+  border-radius: 26px;
+  background: #e8f0ee;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  z-index: 0;
+}
+
+.stateup-leaflet-map .leaflet-control-zoom {
+  border: 1px solid rgba(24, 48, 75, 0.12) !important;
+  border-radius: 14px !important;
+  overflow: hidden;
+  box-shadow: 0 5px 18px rgba(16, 36, 62, 0.14) !important;
+}
+
+.stateup-leaflet-map .leaflet-control-zoom a {
+  width: 34px;
+  height: 34px;
+  line-height: 34px;
+  color: #18304b;
+}
+
+.stateup-leaflet-map .leaflet-control-attribution {
+  font-size: 9px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.stateup-state-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  box-sizing: border-box;
+  border: 2px solid #18304b;
+  border-radius: 7px;
+  background: #fff;
+  color: #fff;
+  font: 900 14px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  box-shadow: 0 2px 8px rgba(16, 36, 62, 0.25);
+  transition: transform 120ms ease, background 120ms ease;
+}
+
+.stateup-state-check.is-visited {
+  border-color: #2477e8;
+  background: #2477e8;
+}
+
+.leaflet-marker-icon.stateup-state-icon:hover .stateup-state-check {
+  transform: scale(1.16);
+}
+
+.stateup-map-recenter {
+  position: absolute;
+  z-index: 800;
+  top: 12px;
+  right: 54px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(24, 48, 75, 0.12);
+  border-radius: 12px;
+  background: #fff;
+  color: #2477e8;
+  box-shadow: 0 5px 18px rgba(16, 36, 62, 0.14);
+  font-size: 18px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.stateup-map-recenter:hover {
+  background: #eef6ff;
+}
+
+.stateup-map-popup {
+  min-width: 170px;
+  color: #18304b;
+}
+
+.stateup-map-popup img {
+  width: 100%;
+  max-height: 112px;
+  margin: 0 0 8px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.stateup-map-popup strong,
+.stateup-map-popup span {
+  display: block;
+}
+
+.stateup-map-popup span {
+  margin-top: 3px;
+  color: #6f7d8b;
+  font-size: 12px;
+}
+
+.stateup-map-popup button {
+  margin-top: 9px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: #2477e8;
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.stateup-photo-marker {
+  box-sizing: border-box;
+  display: block;
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  border: 3px solid #fff;
+  border-radius: 15px;
+  background: #2477e8;
+  box-shadow: 0 4px 12px rgba(16, 36, 62, 0.28);
+}
+
+.stateup-photo-marker img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@media (max-width: 600px) {
+  .stateup-leaflet-map {
+    border-radius: 22px;
+  }
+}

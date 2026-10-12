@@ -143,18 +143,19 @@ export function AppProvider({ children }: PropsWithChildren) {
     },
     requestLocation: async () => {
       setLocationMessage(null);
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (permission.status !== "granted") {
-        setLocationMessage("Location is off. We’ll keep the map ready whenever you change your mind.");
-        return;
-      }
       try {
+        const permission = await Location.requestForegroundPermissionsAsync();
+        if (permission.status !== "granted") {
+          setLocation(null);
+          setLocationMessage("Location is off. We’ll keep the map ready whenever you change your mind.");
+          return;
+        }
         const result = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         setLocation({ latitude: result.coords.latitude, longitude: result.coords.longitude });
         setLocationMessage("You’re on the map.");
       } catch {
-        setLocation({ latitude: 39.9526, longitude: -75.1652 });
-        setLocationMessage("We couldn’t get a signal, so we placed you near Philadelphia for now.");
+        setLocation(null);
+        setLocationMessage("We couldn’t get your location. Check that location is enabled and try again.");
       }
     },
     clearLocalData: async () => {

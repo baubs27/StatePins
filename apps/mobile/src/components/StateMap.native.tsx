@@ -1,60 +1,94 @@
-import { Image } from "expo-image";
-import { useMemo, useState } from "react";
-import MapView, { Callout, Marker, Region } from "react-native-maps";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { router } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
+import { WebView, WebViewMessageEvent } from "react-native-webview";
 import { Pin, USState } from "@/types";
 import { colors } from "@/lib/theme";
 import { isFeaturedPin, sortPinsForMap } from "@/lib/pinVisibility";
+import { createLeafletDocument } from "./leafletNativeHtml";
 
-export function StateMap({ state, pins, location }: { state: USState; pins: Pin[]; location: { latitude: number; longitude: number } | null }) {
-  const [region, setRegion] = useState<Region>({ ...state.centerCoordinates, latitudeDelta: 3.8, longitudeDelta: 4.5 });
-  const zoomedIn = region.latitudeDelta < 2.4;
+export function StateMap({ state, pins, location, onRequestLocation }: {
+  state: USState;
+  pins: Pin[];
+  location: { latitude: number; longitude: number } | null;
+  onRequestLocation?: () => void;
+}) {
+  const mapRef = useRef<WebView>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
   const visiblePins = useMemo(() => [...pins].sort(sortPinsForMap), [pins]);
+  const initialCenter = location ?? state.centerCoordinates;
+  const initialZoom = location ? 12 : 8;
+  const html = useMemo(() => createLeafletDocument({
+    kind: "state",
+    center: initialCenter,
+    zoom: initialZoom,
+    location,
+    states: [state],
+    pins: visiblePins
+  }), [state.id]);
 
-  return <View style={styles.frame}>
-    <MapView
-      style={StyleSheet.absoluteFill}
-      initialRegion={region}
-      onRegionChangeComplete={setRegion}
-      showsUserLocation
-      showsMyLocationButton
-    >
-      {visiblePins.map((pin, index) => {
-        const featured = isFeaturedPin(pin);
-        const showPhoto = featured || zoomedIn;
-        return <Marker key={pin.id} coordinate={pin.coordinates} zIndex={featured ? 10 : 2}>
-          <View style={[styles.marker, featured && styles.markerFeatured]}>
-            {showPhoto ? <Image source={pin.imageUrl} style={styles.markerPhoto} contentFit="cover" /> : <View style={styles.pinDot} />}
-            {featured && <View style={styles.rank}><Text style={styles.rankText}>#{index + 1}</Text></View>}
-          </View>
-          <Callout tooltip>
-            <View style={styles.callout}>
-              <Text style={styles.calloutTitle}>{pin.name}</Text>
-              <Text style={styles.calloutMeta}>{pin.city} · {pin.upvotes} upvotes</Text>
-            </View>
-          </Callout>
-        </Marker>;
-      })}
-      {location && <Marker coordinate={location} title="You are here">
-        <View style={styles.userPulse}><View style={styles.userDot} /></View>
-      </Marker>}
-    </MapView>
-    <View style={styles.ruleBadge}><Text style={styles.ruleText}>Map shows new pins + 250+ upvote keepers</Text></View>
+  useEffect(() => {
+    if (!loaded) return;
+    const payload = JSON.stringify({ pins: visiblePins }).replace(/</g, "\\u003c");
+    mapRef.current?.injectJavaScript(`window.stateupUpdate(${payload});true;`);
+  }, [loaded, visiblePins]);
+
+  useEffect(() => {
+    if (!loaded) return;
+    const payload = JSON.stringify({ location, centerLocation: true }).replace(/</g, "\\u003c");
+    mapRef.current?.injectJavaScript(`window.stateupUpdate(${payload});true;`);
+  }, [loaded, location?.latitude, location?.longitude]);
+
+  function handleMessage(event: WebViewMessageEvent) {
+    try {
+      const message = JSON.parse(event.nativeEvent.data) as { type?: string; id?: string };
+      if (message.type === "ready") setLoaded(true);
+      if (message.type === "openPin" && message.id) router.push(`/pin/${message.id}`);
+      if (message.type === "requestLocation") onRequestLocation?.();
+    } catch {
+      // Ignore unexpected webview messages; map actions are revalidated in native code.
+    }
+  }
+
+  return <View style={styles.frame} accessibilityLabel={`Interactive Leaflet map of ${state.name} recommendations and nearby places`}>
+    <WebView
+      ref={mapRef}
+      source={{ html }}
+      key={state.id}
+      originWhitelist={["*"]}
+      onShouldStartLoadWithRequest={(request) => request.url === "about:blank"}
+      onLoadStart={() => setLoaded(false)}
+      onMessage={handleMessage}
+      onError={() => setError(true)}
+      onHttpError={() => setError(true)}
+      javaScriptEnabled
+      domStorageEnabled={false}
+      geolocationEnabled={false}
+      allowFileAccess={false}
+      allowFileAccessFromFileURLs={false}
+      allowUniversalAccessFromFileURLs={false}
+      mixedContentMode="never"
+      setSupportMultipleWindows={false}
+      style={styles.webview}
+      scrollEnabled={false}
+    />
+    {error && <View pointerEvents="none" style={styles.error}><Text style={styles.errorText}>Map tiles are unavailable. Check your internet connection.</Text></View>}
+    <View pointerEvents="none" style={styles.mapHint}><Text style={styles.mapHintText}>Explore nearby cafés, parks and landmarks on the map</Text></View>
+    <View pointerEvents="none" style={styles.legend}><View style={styles.legendRow}><View style={styles.recommendationDot} /><Text style={styles.legendText}>StateUp pin</Text></View>{location && <View style={styles.legendRow}><View style={styles.locationDot} /><Text style={styles.legendText}>You</Text></View>}</View>
   </View>;
 }
+
 const styles = StyleSheet.create({
-  frame: { height: 300, borderRadius: 24, overflow: "hidden", marginBottom: 18, backgroundColor: "#EAF2F1" },
-  marker: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.blue, borderWidth: 3, borderColor: colors.white, alignItems: "center", justifyContent: "center", shadowColor: colors.navy, shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
-  markerFeatured: { width: 52, height: 52, borderRadius: 20, borderWidth: 4 },
-  markerPhoto: { width: "100%", height: "100%", borderRadius: 15 },
-  pinDot: { width: 10, height: 10, borderRadius: 10, backgroundColor: colors.white },
-  rank: { position: "absolute", right: -8, top: -8, backgroundColor: colors.navy, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 10, borderWidth: 2, borderColor: colors.white },
-  rankText: { color: colors.white, fontSize: 9, fontWeight: "900" },
-  userPulse: { width: 30, height: 30, borderRadius: 15, backgroundColor: "rgba(21,152,229,0.18)", alignItems: "center", justifyContent: "center" },
-  userDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: "#1598E5", borderWidth: 2, borderColor: colors.white },
-  callout: { minWidth: 160, backgroundColor: colors.white, borderRadius: 16, padding: 12, borderWidth: 1, borderColor: colors.border },
-  calloutTitle: { color: colors.navy, fontWeight: "900", fontSize: 14 },
-  calloutMeta: { color: colors.grayText, fontSize: 11, marginTop: 3 },
-  ruleBadge: { position: "absolute", left: 12, right: 12, bottom: 12, backgroundColor: "rgba(255,255,255,0.92)", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: colors.border },
-  ruleText: { color: colors.grayText, fontSize: 11, textAlign: "center", fontWeight: "700" }
+  frame: { height: 390, borderRadius: 26, overflow: "hidden", marginBottom: 18, backgroundColor: "#e8f0ee", position: "relative" },
+  webview: { flex: 1, backgroundColor: "#e8f0ee" },
+  mapHint: { position: "absolute", left: 12, right: 56, top: 12, alignItems: "flex-start" },
+  mapHintText: { maxWidth: "100%", backgroundColor: "rgba(255,255,255,0.95)", borderRadius: 13, paddingHorizontal: 11, paddingVertical: 8, color: colors.grayText, fontSize: 11, fontWeight: "800", overflow: "hidden" },
+  legend: { position: "absolute", left: 12, bottom: 12, flexDirection: "row", gap: 10, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: "rgba(255,255,255,0.94)" },
+  legendRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+  legendText: { color: colors.grayText, fontSize: 10, fontWeight: "800" },
+  recommendationDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.blue },
+  locationDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: "#1598e5", borderWidth: 2, borderColor: "#fff" },
+  error: { position: "absolute", left: 12, right: 12, top: 12, borderRadius: 12, padding: 9, backgroundColor: "rgba(255,255,255,0.94)" },
+  errorText: { color: colors.grayText, fontSize: 11, textAlign: "center", fontWeight: "700" }
 });

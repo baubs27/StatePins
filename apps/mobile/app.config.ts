@@ -3,7 +3,10 @@ import type { ExpoConfig, ConfigContext } from "expo/config";
 export default ({ config }: ConfigContext): ExpoConfig => {
   const production = process.env.APP_ENV === "production";
   const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? "";
+  const mapTileUrl = process.env.EXPO_PUBLIC_MAP_TILE_URL ?? "";
   if (production && !apiUrl.startsWith("https://")) throw new Error("Production builds require EXPO_PUBLIC_API_URL with HTTPS.");
+  if (production && (!mapTileUrl.startsWith("https://") || !["{z}", "{x}", "{y}"].every((token) => mapTileUrl.includes(token)))) throw new Error("Production builds require an HTTPS raster tile URL in EXPO_PUBLIC_MAP_TILE_URL.");
+  if (production && !process.env.EXPO_PUBLIC_MAP_ATTRIBUTION?.trim()) throw new Error("Production builds require provider attribution in EXPO_PUBLIC_MAP_ATTRIBUTION.");
   if (production && !process.env.EXPO_PUBLIC_EAS_PROJECT_ID) throw new Error("Production builds require EXPO_PUBLIC_EAS_PROJECT_ID.");
   if (production && !process.env.EXPO_PUBLIC_PRIVACY_URL?.startsWith("https://")) throw new Error("Production builds require EXPO_PUBLIC_PRIVACY_URL with HTTPS.");
   if (production && !process.env.EXPO_PUBLIC_TERMS_URL?.startsWith("https://")) throw new Error("Production builds require EXPO_PUBLIC_TERMS_URL with HTTPS.");
@@ -36,8 +39,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       package: process.env.ANDROID_PACKAGE_NAME ?? "com.yourcompany.stateup",
       blockedPermissions: ["android.permission.RECORD_AUDIO"],
       adaptiveIcon: { foregroundImage: "./assets/adaptive-icon.png", backgroundColor: "#10243E" },
-      permissions: ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION", "CAMERA", "READ_MEDIA_IMAGES", "POST_NOTIFICATIONS"],
-      config: { googleMaps: { apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? "" } }
+      permissions: ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION", "CAMERA", "READ_MEDIA_IMAGES", "POST_NOTIFICATIONS"]
     },
     web: { bundler: "metro", favicon: "./assets/favicon.png" },
     plugins: [

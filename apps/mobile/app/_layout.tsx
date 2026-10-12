@@ -1,3 +1,5 @@
+import "leaflet/dist/leaflet.css";
+import "@/components/leaflet.css";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";

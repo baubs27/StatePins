@@ -17,7 +17,7 @@ docs/legal    Privacy, terms, and community-rule drafts
 docs/store    Store listing, screenshots, and disclosure notes
 ```
 
-Local development uses SQLite and filesystem uploads. Production should use managed PostgreSQL and private object storage/CDN with encryption, backups, malware/image moderation, and deletion lifecycle rules.
+Local development uses SQLite and filesystem uploads. Interactive maps use Leaflet with OpenStreetMap data on web, iOS, and Android; the phone app hosts Leaflet in a locked-down WebView while native app permissions provide the blue location dot. Map tiles include street names and nearby points of interest. Production should use managed PostgreSQL and private object storage/CDN with encryption, backups, malware/image moderation, and deletion lifecycle rules.
 
 ## Fastest Windows start
 
@@ -46,7 +46,7 @@ The seed script saves this account and sample Pennsylvania pins. It also creates
 
 ## Standard local setup
 
-Requirements: Node.js 20 or 22, pnpm 11, and Expo Go or native tooling.
+Requirements: Node.js 22.13 or newer, pnpm 11, and Expo Go or native tooling.
 
 ```bash
 pnpm install --frozen-lockfile
@@ -106,13 +106,14 @@ Mobile/build:
 
 - `EXPO_PUBLIC_API_URL` (HTTPS in production)
 - `EXPO_PUBLIC_EAS_PROJECT_ID`
-- `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`
+- `EXPO_PUBLIC_MAP_TILE_URL` (optional for development; required as an HTTPS raster XYZ endpoint for production)
+- `EXPO_PUBLIC_MAP_ATTRIBUTION` (optional for development; required attribution text/link for the production tile provider)
 - `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`
 - `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`
 - `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID`
 - `IOS_BUNDLE_IDENTIFIER`, `ANDROID_PACKAGE_NAME`
 
-Restrict the Maps key by app identifier and signing certificate. Put production secrets in the hosting secret manager and EAS environment secrets, never `.env` in Git.
+Keep production secrets in the hosting secret manager and EAS environment secrets, never `.env` in Git. Map tile endpoints and any browser-visible tile keys are public client configuration, not secrets. The built-in OpenStreetMap standard tile endpoint is for local development and evaluation; select a provider whose terms, attribution, caching, privacy and expected traffic fit a public mobile app before launch. Never prefetch tiles for offline use from the community tile server. Leaflet's pinned script/style CDN and the tile provider receive ordinary connection requests; map tile requests also reveal the displayed map area. Disclose the production providers and their privacy terms in the final policy.
 
 ## OAuth setup
 

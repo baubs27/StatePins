@@ -4,4 +4,5 @@ export function StateMap(props: {
   state: USState;
   pins: Pin[];
   location: { latitude: number; longitude: number } | null;
+  onRequestLocation?: () => void;
 }): React.ReactElement;

@@ -17,6 +17,8 @@ These notes are not completed Apple App Privacy or Google Play Data safety answe
 | Session/security records | Security, fraud prevention | Yes | Hosting/security providers only | Expire/revoke; deletion/retention policy |
 | Diagnostics | Reliability/security | Potentially | Selected monitoring provider | Disclose the actual provider and retention |
 
+When a user opens a map, its tile provider receives requests for the displayed area and standard connection data such as IP address. The app does not pass the precise device coordinate as a separate location field to the tile provider, though centering the map near the user can reveal the approximate area. The pinned Leaflet library is loaded from unpkg.com on native and web; the chosen production map library and tile providers must be listed in the final privacy policy and store disclosures.
+
 StateUp currently has no ads, payments, contacts, health data, data brokerage, or cross-app tracking. Reassess the forms whenever an SDK, analytics/crash tool, provider, advertising feature, or data flow changes.
 
 Google Play requires both an in-app deletion path and a public web deletion-request resource. Apple requires initiation of full account deletion in-app. The app implements in-app deletion; the operator must publish the web resource and final privacy policy.

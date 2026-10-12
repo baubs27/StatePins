@@ -14,7 +14,7 @@ import { findStateForCoordinates } from "@/lib/usGeo";
 
 export default function StateDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { states, pins, location, favoriteStateIds, favoritePinIds, toggleVisited, toggleSaved, toggleFavoriteState, toggleFavoritePin, addPin } = useApp();
+  const { states, pins, location, favoriteStateIds, favoritePinIds, toggleVisited, toggleSaved, toggleFavoriteState, toggleFavoritePin, addPin, requestLocation } = useApp();
   const { effectiveBackground, background } = usePreferences();
   const [showAdd, setShowAdd] = useState(false);
   const state = states.find((item) => item.id === id);
@@ -57,7 +57,7 @@ export default function StateDetailScreen() {
         </Button>
       </View>
 
-      <StateMap state={state} pins={mapPins} location={locationInThisState} />
+      <StateMap state={state} pins={mapPins} location={locationInThisState} onRequestLocation={requestLocation} />
       <View style={styles.mapRule}>
         <Ionicons name="sparkles-outline" size={16} color={colors.blue} />
         <Text style={styles.mapRuleText}>Pinpoints stay on the map while they are new. After {PIN_MAP_GRACE_DAYS} days, pins need {PIN_MAP_UPVOTE_THRESHOLD}+ upvotes to remain featured here.</Text>

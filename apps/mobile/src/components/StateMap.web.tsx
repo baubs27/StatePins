@@ -1,52 +1,131 @@
-import { Image } from "expo-image";
-import { useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import Svg, { Path } from "react-native-svg";
+import { useEffect, useMemo, useState } from "react";
+import { router } from "expo-router";
+import { StyleSheet, Text, View } from "react-native";
 import { Pin, USState } from "@/types";
 import { colors } from "@/lib/theme";
-import { openDirections } from "@/lib/directions";
-import { US_MAP_HEIGHT, US_MAP_WIDTH, buildUsProjection, projectCoordinates } from "@/lib/usGeo";
 import { isFeaturedPin, sortPinsForMap } from "@/lib/pinVisibility";
+import { LeafletRuntime, loadLeafletRuntime, MAP_ATTRIBUTION, MAP_TILE_URL } from "./leafletRuntime.web";
 
-export function StateMap({ state, pins, location }: { state: USState; pins: Pin[]; location: { latitude: number; longitude: number } | null }) {
-  const { projection, shapes } = useMemo(() => buildUsProjection([state], 18), [state]);
-  const shape = shapes[0];
+export function StateMap({ state, pins, location, onRequestLocation }: { state: USState; pins: Pin[]; location: { latitude: number; longitude: number } | null; onRequestLocation?: () => void }) {
+  const [runtime, setRuntime] = useState<LeafletRuntime | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [zoom, setZoom] = useState(location ? 12 : 8);
   const visiblePins = useMemo(() => [...pins].sort(sortPinsForMap), [pins]);
-  const userPoint = location ? projectCoordinates(projection, location) : null;
+  const initialCenter = location ?? state.centerCoordinates;
+  const initialZoom = location ? 12 : 8;
 
-  return <View style={styles.map}>
-    <Svg width="100%" height="100%" viewBox={`0 0 ${US_MAP_WIDTH} ${US_MAP_HEIGHT}`}>
-      {!!shape && <Path d={shape.path} fill="#DDEBE8" stroke={colors.white} strokeWidth={4} />}
-    </Svg>
-    <Text style={styles.stateName}>{state.name.toUpperCase()}</Text>
-    {visiblePins.map((pin, index) => {
-      const point = projectCoordinates(projection, pin.coordinates);
-      if (!point) return null;
-      const featured = isFeaturedPin(pin);
-      return <Pressable
-        key={pin.id}
-        onPress={() => openDirections(pin.name, pin.coordinates.latitude, pin.coordinates.longitude)}
-        style={[styles.pin, featured && styles.pinFeatured, { left: `${(point[0] / US_MAP_WIDTH) * 100}%`, top: `${(point[1] / US_MAP_HEIGHT) * 100}%` }]}
-      >
-        {(featured || index < 2) ? <Image source={pin.imageUrl} style={styles.pinPhoto} contentFit="cover" /> : <View style={styles.pinDot} />}
-        {featured && <View style={styles.rank}><Text style={styles.rankText}>#{index + 1}</Text></View>}
-      </Pressable>;
-    })}
-    {userPoint && <View style={[styles.youDot, { left: `${(userPoint[0] / US_MAP_WIDTH) * 100}%`, top: `${(userPoint[1] / US_MAP_HEIGHT) * 100}%` }]} />}
-    <View style={styles.ruleBadge}><Text style={styles.ruleText}>Map shows new pins + 250+ upvote keepers</Text></View>
+  useEffect(() => {
+    let active = true;
+    loadLeafletRuntime().then((loaded) => {
+      if (active) setRuntime(loaded);
+    }).catch(() => {
+      if (active) setLoadError(true);
+    });
+    return () => { active = false; };
+  }, []);
+
+  if (!runtime) {
+    return <View style={styles.frame}><View style={styles.loading}><Text style={styles.loadingTitle}>{loadError ? "Map could not load" : "Loading map…"}</Text><Text style={styles.loadingHint}>Connect to the internet to explore nearby places.</Text></View></View>;
+  }
+
+  const { MapContainer, TileLayer, Marker, CircleMarker, Popup, Tooltip, ZoomControl, useMap, useMapEvents } = runtime.ReactLeaflet;
+  const { divIcon } = runtime.L;
+
+  function ZoomLevel() {
+    useMapEvents({ zoomend: (event) => setZoom(event.target.getZoom()) });
+    return null;
+  }
+
+  function PinPopup({ pin }: { pin: Pin }) {
+    return <Popup>
+      <div className="stateup-map-popup">
+        <img src={pin.imageUrl} alt="" loading="lazy" />
+        <strong>{pin.name}</strong>
+        <span>{pin.city} · {pin.upvotes} upvotes</span>
+        <button type="button" onClick={() => router.push(`/pin/${pin.id}`)}>See recommendation</button>
+      </div>
+    </Popup>;
+  }
+
+  function RecenterControl() {
+    const map = useMap();
+    useEffect(() => {
+      if (location) map.flyTo([location.latitude, location.longitude], Math.max(map.getZoom(), 12), { duration: 0.7 });
+    }, [map, location?.latitude, location?.longitude]);
+    return <button
+      type="button"
+      className="stateup-map-recenter"
+      aria-label={location ? "Center map on my location" : "Location is not available"}
+      title={location ? "Center on my location" : "Turn on location in Settings"}
+      onClick={(event) => {
+        event.stopPropagation();
+        if (location) map.flyTo([location.latitude, location.longitude], Math.max(map.getZoom(), 12), { duration: 0.7 });
+        else onRequestLocation?.();
+      }}
+    >⌖</button>;
+  }
+
+  return <View style={styles.frame} accessibilityLabel={`Interactive ${state.name} map with StateUp recommendations and nearby map details`}>
+    <MapContainer
+      className="stateup-leaflet-map"
+      center={[initialCenter.latitude, initialCenter.longitude]}
+      zoom={initialZoom}
+      minZoom={5}
+      maxZoom={19}
+      maxBounds={[[18, -180], [72, -60]]}
+      maxBoundsViscosity={0.75}
+      zoomControl={false}
+      scrollWheelZoom
+    >
+      <TileLayer url={MAP_TILE_URL} attribution={MAP_ATTRIBUTION} minZoom={2} maxZoom={19} />
+      <ZoomControl position="topright" />
+      <RecenterControl />
+      <ZoomLevel />
+      {visiblePins.map((pin) => {
+        const featured = isFeaturedPin(pin);
+        const imageUrl = /^https:\/\//i.test(pin.imageUrl) ? pin.imageUrl.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;") : "";
+        const showPhoto = Boolean(imageUrl) && (featured || zoom >= 13);
+        if (showPhoto) {
+          const icon = divIcon({
+            className: "stateup-photo-pin",
+            html: `<span class="stateup-photo-marker"><img src="${imageUrl}" alt=""></span>`,
+            iconSize: [44, 44],
+            iconAnchor: [22, 22]
+          });
+          return <Marker key={pin.id} position={[pin.coordinates.latitude, pin.coordinates.longitude]} icon={icon} zIndexOffset={featured ? 500 : 100}>
+            <Tooltip direction="top" offset={[0, -18]}>{pin.name}</Tooltip>
+            <PinPopup pin={pin} />
+          </Marker>;
+        }
+        return <CircleMarker
+          key={pin.id}
+          center={[pin.coordinates.latitude, pin.coordinates.longitude]}
+          radius={featured ? 13 : 9}
+          pathOptions={{ color: "#fff", weight: 3, fillColor: featured ? "#ef6f5d" : "#2477e8", fillOpacity: 1 }}
+        >
+          <Tooltip direction="top" offset={[0, -8]}>{pin.name}</Tooltip>
+          <PinPopup pin={pin} />
+        </CircleMarker>;
+      })}
+      {location && <CircleMarker center={[location.latitude, location.longitude]} radius={8} pathOptions={{ color: "#fff", weight: 3, fillColor: "#1598e5", fillOpacity: 1 }}>
+        <Tooltip direction="top" offset={[0, -8]} permanent>You are here</Tooltip>
+      </CircleMarker>}
+    </MapContainer>
+    <View pointerEvents="none" style={styles.mapHint}><Text style={styles.mapHintText}>Explore nearby cafés, parks and landmarks on the map</Text></View>
+    <View pointerEvents="none" style={styles.legend}><View style={styles.legendRow}><View style={styles.recommendationDot} /><Text style={styles.legendText}>StateUp pin</Text></View>{location && <View style={styles.legendRow}><View style={styles.locationDot} /><Text style={styles.legendText}>You</Text></View>}</View>
   </View>;
 }
 
 const styles = StyleSheet.create({
-  map: { height: 300, borderRadius: 24, overflow: "hidden", marginBottom: 18, backgroundColor: "#EAF2F1", position: "relative" },
-  stateName: { position: "absolute", left: 20, bottom: 16, color: "#B1C5C2", fontSize: 26, fontWeight: "900", letterSpacing: 2 },
-  pin: { position: "absolute", width: 28, height: 28, marginLeft: -14, marginTop: -14, borderRadius: 14, backgroundColor: colors.blue, borderWidth: 3, borderColor: colors.white, alignItems: "center", justifyContent: "center", shadowColor: colors.navy, shadowOpacity: 0.16, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
-  pinFeatured: { width: 50, height: 50, marginLeft: -25, marginTop: -25, borderRadius: 18, borderWidth: 4 },
-  pinPhoto: { width: "100%", height: "100%", borderRadius: 14 },
-  pinDot: { width: 10, height: 10, borderRadius: 10, backgroundColor: colors.white },
-  rank: { position: "absolute", right: -8, top: -8, backgroundColor: colors.navy, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 10, borderWidth: 2, borderColor: colors.white },
-  rankText: { color: colors.white, fontSize: 9, fontWeight: "900" },
-  youDot: { position: "absolute", width: 13, height: 13, marginLeft: -6.5, marginTop: -6.5, borderRadius: 7, backgroundColor: "#1598E5", borderWidth: 2.5, borderColor: colors.white, shadowColor: "#1598E5", shadowOpacity: 0.35, shadowRadius: 9 },
-  ruleBadge: { position: "absolute", left: 12, right: 12, top: 12, backgroundColor: "rgba(255,255,255,0.92)", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: colors.border },
-  ruleText: { color: colors.grayText, fontSize: 11, textAlign: "center", fontWeight: "700" }
+  frame: { height: 390, borderRadius: 26, overflow: "hidden", marginBottom: 18, backgroundColor: "#e8f0ee", position: "relative" },
+  mapHint: { position: "absolute", left: 12, right: 56, top: 12, alignItems: "flex-start" },
+  mapHintText: { maxWidth: "100%", backgroundColor: "rgba(255,255,255,0.95)", borderRadius: 13, paddingHorizontal: 11, paddingVertical: 8, color: colors.grayText, fontSize: 11, fontWeight: "800", overflow: "hidden" },
+  legend: { position: "absolute", left: 12, bottom: 12, flexDirection: "row", gap: 10, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: "rgba(255,255,255,0.94)" },
+  legendRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+  legendText: { color: colors.grayText, fontSize: 10, fontWeight: "800" },
+  recommendationDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.blue },
+  locationDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: "#1598e5", borderWidth: 2, borderColor: "#fff" },
+  loading: { flex: 1, alignItems: "center", justifyContent: "center", gap: 6 },
+  loadingTitle: { color: colors.navy, fontSize: 16, fontWeight: "900" },
+  loadingHint: { color: colors.grayText, fontSize: 12 }
 });
