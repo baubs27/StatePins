@@ -189,4 +189,4 @@ The app includes report pin/comment/message/user structures, block/unblock, frie
 - `docs/store/data-disclosures.md`
 - `docs/store/screenshots.md`
 
-These are release working documents, not legal advice. The operator identity, support contacts, hosting vendors, retention periods, jurisdiction terms, and public URLs must be finalized before submission.
+These are temp release working documents.
