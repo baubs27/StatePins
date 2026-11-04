@@ -6,7 +6,7 @@ StateUp is a mobile-first social travel app for iOS, Android, and web. Travelers
 
 The repository contains a working Expo/React Native client and Fastify/Prisma API. Automated smoke coverage exercises account creation and login, session rotation, password/email changes, password recovery, image uploads, pins, votes, favorites, itinerary saves, comments, friend requests, moderation, chat, blocking, and account deletion.
 
-Store submission still requires owner-specific values that cannot be safely invented: final bundle/package IDs, Expo project ID, Apple/Google developer credentials, OAuth client IDs, public legal/support URLs, production API and database hosting, and completed privacy questionnaires. Search for `yourcompany`, `example.com`, `PLACEHOLDER`, and bracketed legal fields before release.
+Still not fully ready for submission to app store. 
 
 ## Architecture
 
